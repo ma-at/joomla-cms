@@ -3,7 +3,7 @@
  * @package     Joomla.Tests
  * @subpackage  AcceptanceTester
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -25,6 +25,7 @@ use Codeception\Lib\Friend;
  * @method void lookForwardTo($achieveValue)
  * @method void comment($description)
  * @method Friend haveFriend($name, $actorClass = null)
+ * @method getConfig(string $string)
  *
  * @SuppressWarnings(PHPMD)
  *

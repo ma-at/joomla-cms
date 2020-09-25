@@ -3,7 +3,7 @@
  * @package     Joomla.Tests
  * @subpackage  AcceptanceTester.Page
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 namespace Page\Acceptance\Administrator;
@@ -136,6 +136,7 @@ class AdminPage extends AcceptanceTester
 		$I = $this;
 
 		$I->waitForPageTitle($title);
+		$I->waitForElementVisible(self::$systemMessageContainer, TIMEOUT);
 		$I->see($message, self::$systemMessageContainer);
 	}
 
@@ -153,7 +154,7 @@ class AdminPage extends AcceptanceTester
 	public function waitForPageTitle($title)
 	{
 		$I = $this;
-		$I->waitForText($title, TIMEOUT, self::$pageTitle);
+		$I->waitForText($title, $I->getConfig('timeout'), self::$pageTitle);
 	}
 
 	/**
@@ -224,7 +225,7 @@ class AdminPage extends AcceptanceTester
 			['xpath' => "//li[@class='dropdown open']/ul[@class='dropdown-menu']//a[text() = 'Logout']"]
 		);
 
-		$I->waitForElement(['id' => 'mod-login-username'], TIMEOUT);
+		$I->waitForElement(['id' => 'mod-login-username'], $I->getConfig('timeout'));
 		$I->waitForText(
 			'Log in',
 			TIMEOUT,

@@ -2,13 +2,13 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 namespace Joomla\CMS\Menu;
 
-defined('JPATH_PLATFORM') or die;
+\defined('JPATH_PLATFORM') or die;
 
 use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\Cache\CacheControllerFactoryInterface;
@@ -80,7 +80,6 @@ class SiteMenu extends AbstractMenu
 	{
 		$loader = function ()
 		{
-			$nullDate    = $this->db->getNullDate();
 			$currentDate = Factory::getDate()->toSql();
 
 			$query = $this->db->getQuery(true)
@@ -135,29 +134,32 @@ class SiteMenu extends AbstractMenu
 				->extendWhere(
 					'AND',
 					[
-						$this->db->quoteName('m.publish_up') . ' = :nullDate1',
+						$this->db->quoteName('m.publish_up') . ' IS NULL',
 						$this->db->quoteName('m.publish_up') . ' <= :currentDate1',
 					],
 					'OR'
 				)
-				->bind(':nullDate1', $nullDate)
 				->bind(':currentDate1', $currentDate)
 				->extendWhere(
 					'AND',
 					[
-						$this->db->quoteName('m.publish_down') . ' = :nullDate2',
+						$this->db->quoteName('m.publish_down') . ' IS NULL',
 						$this->db->quoteName('m.publish_down') . ' >= :currentDate2',
 					],
 					'OR'
 				)
-				->bind(':nullDate2', $nullDate)
 				->bind(':currentDate2', $currentDate)
 				->order($this->db->quoteName('m.lft'));
 
-			// Set the query
-			$this->db->setQuery($query);
+			$items    = [];
+			$iterator = $this->db->setQuery($query)->getIterator();
 
-			return $this->db->loadObjectList('id', MenuItem::class);
+			foreach ($iterator as $item)
+			{
+				$items[$item->id] = new MenuItem((array) $item);
+			}
+
+			return $items;
 		};
 
 		try
@@ -166,7 +168,7 @@ class SiteMenu extends AbstractMenu
 			$cache = Factory::getContainer()->get(CacheControllerFactoryInterface::class)
 				->createCacheController('callback', ['defaultgroup' => 'com_menus']);
 
-			$this->items = $cache->get($loader, array(), md5(get_class($this)), false);
+			$this->items = $cache->get($loader, array(), md5(\get_class($this)), false);
 		}
 		catch (CacheExceptionInterface $e)
 		{
@@ -188,15 +190,15 @@ class SiteMenu extends AbstractMenu
 			return false;
 		}
 
-		foreach ($this->getMenu() as &$item)
+		foreach ($this->items as &$item)
 		{
 			// Get parent information.
 			$parent_tree = array();
 
-			if (isset($this->getMenu()[$item->parent_id]))
+			if (isset($this->items[$item->parent_id]))
 			{
-				$item->setParent($this->getMenu()[$item->parent_id]);
-				$parent_tree  = $this->getMenu()[$item->parent_id]->tree;
+				$item->setParent($this->items[$item->parent_id]);
+				$parent_tree  = $this->items[$item->parent_id]->tree;
 			}
 
 			// Create tree.
@@ -275,14 +277,17 @@ class SiteMenu extends AbstractMenu
 	 */
 	public function getDefault($language = '*')
 	{
-		if (array_key_exists($language, $this->default) && $this->app->isClient('site') && $this->app->getLanguageFilter())
+		// Get menu items first to ensure defaults have been populated
+		$items = $this->getMenu();
+
+		if (\array_key_exists($language, $this->default) && $this->app->isClient('site') && $this->app->getLanguageFilter())
 		{
-			return $this->getMenu()[$this->default[$language]];
+			return $items[$this->default[$language]];
 		}
 
-		if (array_key_exists('*', $this->default))
+		if (\array_key_exists('*', $this->default))
 		{
-			return $this->getMenu()[$this->default['*']];
+			return $items[$this->default['*']];
 		}
 	}
 }

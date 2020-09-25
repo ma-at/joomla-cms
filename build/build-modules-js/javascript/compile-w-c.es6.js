@@ -25,7 +25,7 @@ const createJsFiles = (inputFile, es6FileContents) => {
             browsers: ['last 1 Chrome version'],
           },
         }],
-        ['minify'],
+        ['minify', { builtIns: false }],
       ],
       comments: false,
     },
@@ -51,7 +51,7 @@ const createJsFiles = (inputFile, es6FileContents) => {
             browsers: ['ie 11'],
           },
         }],
-        ['minify'],
+        ['minify', { builtIns: false }],
       ],
       plugins: [
         ['@babel/plugin-transform-classes'],
@@ -119,7 +119,7 @@ module.exports.compile = (inputFile) => {
                         inputFile.replace('/build/media_source/', '/media/').replace('\\build\\media_source\\', '\\media\\').replace('/js/', '/css/').replace('\\js\\', '\\css\\')
                           .replace('.w-c.es6.js', '.css'),
                         res.css.toString(),
-                        { encoding: 'UTF-8' },
+                        { encoding: 'utf8' },
                       );
                       // eslint-disable-next-line max-len
                       Postcss([CssNano]).process(res.css.toString(), { from: undefined }).then((cssMin) => {

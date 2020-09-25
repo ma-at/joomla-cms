@@ -2,7 +2,7 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -159,15 +159,6 @@ final class SiteApplication extends CMSApplication
 				$languages = LanguageHelper::getLanguages('lang_code');
 
 				// Set metadata
-				if (isset($languages[$lang_code]) && $languages[$lang_code]->metakey)
-				{
-					$document->setMetaData('keywords', $languages[$lang_code]->metakey);
-				}
-				else
-				{
-					$document->setMetaData('keywords', $this->get('MetaKeys'));
-				}
-
 				$document->setMetaData('rights', $this->get('MetaRights'));
 
 				// Get the template
@@ -178,9 +169,19 @@ final class SiteApplication extends CMSApplication
 				$this->set('themeParams', $template->params);
 
 				// Add Asset registry files
-				$document->getWebAssetManager()->getRegistry()
-					->addRegistryFile('media/' . $component . '/joomla.asset.json')
-					->addRegistryFile('templates/' . $template->template . '/joomla.asset.json');
+				$wr = $document->getWebAssetManager()->getRegistry();
+
+				if ($component)
+				{
+					$wr->addExtensionRegistryFile($component);
+				}
+
+				if ($template->parent)
+				{
+					$wr->addTemplateRegistryFile($template->parent, $this->getClientId());
+				}
+
+				$wr->addTemplateRegistryFile($template->template, $this->getClientId());
 
 				break;
 
@@ -333,7 +334,7 @@ final class SiteApplication extends CMSApplication
 				// Get show_page_heading from com_menu global settings
 				$params[$hash]->def('show_page_heading', $temp->get('show_page_heading'));
 
-				$params[$hash]->merge($menu->params);
+				$params[$hash]->merge($menu->getParams());
 				$title = $menu->title;
 			}
 			else
@@ -398,7 +399,17 @@ final class SiteApplication extends CMSApplication
 	{
 		if (\is_object($this->template))
 		{
-			if (!file_exists(JPATH_THEMES . '/' . $this->template->template . '/index.php'))
+			if ($this->template->parent)
+			{
+				if (!file_exists(JPATH_THEMES . '/' . $this->template->template . '/index.php'))
+				{
+					if (!file_exists(JPATH_THEMES . '/' . $this->template->parent . '/index.php'))
+					{
+						throw new \InvalidArgumentException(Text::sprintf('JERROR_COULD_NOT_FIND_TEMPLATE', $this->template->template));
+					}
+				}
+			}
+			elseif (!file_exists(JPATH_THEMES . '/' . $this->template->template . '/index.php'))
 			{
 				throw new \InvalidArgumentException(Text::sprintf('JERROR_COULD_NOT_FIND_TEMPLATE', $this->template->template));
 			}
@@ -457,8 +468,9 @@ final class SiteApplication extends CMSApplication
 		{
 			// Load styles
 			$db = Factory::getDbo();
+
 			$query = $db->getQuery(true)
-				->select($db->quoteName(['id', 'home', 'template', 's.params']))
+				->select($db->quoteName(['id', 'home', 'template', 's.params', 'inheritable', 'parent']))
 				->from($db->quoteName('#__template_styles', 's'))
 				->where(
 					[
@@ -533,7 +545,35 @@ final class SiteApplication extends CMSApplication
 		$template->template = InputFilter::getInstance()->clean($template->template, 'cmd');
 
 		// Fallback template
-		if (!file_exists(JPATH_THEMES . '/' . $template->template . '/index.php'))
+		if (!empty($template->parent))
+		{
+			if (!file_exists(JPATH_THEMES . '/' . $template->template . '/index.php'))
+			{
+				if (!file_exists(JPATH_THEMES . '/' . $template->parent . '/index.php'))
+				{
+					$this->enqueueMessage(Text::_('JERROR_ALERTNOTEMPLATE'), 'error');
+
+					// Try to find data for 'cassiopeia' template
+					$original_tmpl = $template->template;
+
+					foreach ($templates as $tmpl)
+					{
+						if ($tmpl->template === 'cassiopeia')
+						{
+							$template = $tmpl;
+							break;
+						}
+					}
+
+					// Check, the data were found and if template really exists
+					if (!file_exists(JPATH_THEMES . '/' . $template->template . '/index.php'))
+					{
+						throw new \InvalidArgumentException(Text::sprintf('JERROR_COULD_NOT_FIND_TEMPLATE', $original_tmpl));
+					}
+				}
+			}
+		}
+		elseif (!file_exists(JPATH_THEMES . '/' . $template->template . '/index.php'))
 		{
 			$this->enqueueMessage(Text::_('JERROR_ALERTNOTEMPLATE'), 'error');
 
@@ -585,6 +625,13 @@ final class SiteApplication extends CMSApplication
 		{
 			$guestUsergroup = ComponentHelper::getParams('com_users')->get('guest_usergroup', 1);
 			$user->groups = array($guestUsergroup);
+		}
+
+		if ($plugin = PluginHelper::getPlugin('system', 'languagefilter'))
+		{
+			$pluginParams = new Registry($plugin->params);
+			$this->setLanguageFilter(true);
+			$this->setDetectBrowser($pluginParams->get('detect_browser', 1) == 1);
 		}
 
 		if (empty($options['language']))
@@ -675,8 +722,8 @@ final class SiteApplication extends CMSApplication
 		 * Try the lib_joomla file in the current language (without allowing the loading of the file in the default language)
 		 * Fallback to the default language if necessary
 		 */
-		$this->getLanguage()->load('lib_joomla', JPATH_SITE, null, false, true)
-			|| $this->getLanguage()->load('lib_joomla', JPATH_ADMINISTRATOR, null, false, true);
+		$this->getLanguage()->load('lib_joomla', JPATH_SITE)
+			|| $this->getLanguage()->load('lib_joomla', JPATH_ADMINISTRATOR);
 	}
 
 	/**
@@ -747,6 +794,9 @@ final class SiteApplication extends CMSApplication
 				{
 					$this->set('themeFile', $file . '.php');
 				}
+
+				// Pass the parent template to the state
+				$this->set('themeInherits', $template->parent);
 
 				break;
 		}

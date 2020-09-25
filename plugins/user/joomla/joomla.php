@@ -3,7 +3,7 @@
  * @package     Joomla.Plugin
  * @subpackage  User.joomla
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -11,8 +11,10 @@ defined('_JEXEC') or die;
 
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Language\LanguageFactoryInterface;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Log\Log;
+use Joomla\CMS\Mail\MailTemplate;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\User\User;
@@ -45,6 +47,46 @@ class PlgUserJoomla extends CMSPlugin
 	protected $db;
 
 	/**
+	 * Set as required the passwords fields when mail to user is set to No
+	 *
+	 * @param   JForm  $form  The form to be altered.
+	 * @param   mixed  $data  The associated data for the form.
+	 *
+	 * @return  boolean
+	 *
+	 * @since   4.0.0
+	 */
+	public function onContentPrepareForm($form, $data)
+	{
+		// Check we are manipulating a valid user form before modifying it.
+		$name = $form->getName();
+
+		if ($name === 'com_users.user')
+		{
+			// In case there is a validation error (like duplicated user), $data is an empty array on save.
+			// After returning from error, $data is an array but populated
+			if (!$data)
+			{
+				$data = JFactory::getApplication()->input->get('jform', array(), 'array');
+			}
+
+			if (is_array($data))
+			{
+				$data = (object) $data;
+			}
+
+			// Passwords fields are required when mail to user is set to No
+			if (empty($data->id) && !$this->params->get('mail_to_user', 1))
+			{
+				$form->setFieldAttribute('password', 'required', 'true');
+				$form->setFieldAttribute('password2', 'required', 'true');
+			}
+		}
+
+		return true;
+	}
+
+	/**
 	 * Remove all sessions for the user name
 	 *
 	 * Method is called after user data is deleted from the database
@@ -53,15 +95,15 @@ class PlgUserJoomla extends CMSPlugin
 	 * @param   boolean  $success  True if user was successfully stored in the database
 	 * @param   string   $msg      Message
 	 *
-	 * @return  boolean
+	 * @return  void
 	 *
 	 * @since   1.6
 	 */
-	public function onUserAfterDelete($user, $success, $msg)
+	public function onUserAfterDelete($user, $success, $msg): void
 	{
 		if (!$success)
 		{
-			return false;
+			return;
 		}
 
 		$db     = $this->db;
@@ -81,7 +123,7 @@ class PlgUserJoomla extends CMSPlugin
 			}
 			catch (ExecutionFailureException $e)
 			{
-				return false;
+				// Continue.
 			}
 		}
 
@@ -96,10 +138,8 @@ class PlgUserJoomla extends CMSPlugin
 		}
 		catch (ExecutionFailureException $e)
 		{
-			return false;
+			// Do nothing.
 		}
-
-		return true;
 	}
 
 	/**
@@ -116,7 +156,7 @@ class PlgUserJoomla extends CMSPlugin
 	 *
 	 * @since   1.6
 	 */
-	public function onUserAfterSave($user, $isnew, $success, $msg)
+	public function onUserAfterSave($user, $isnew, $success, $msg): void
 	{
 		$mail_to_user = $this->params->get('mail_to_user', 1);
 
@@ -140,8 +180,8 @@ class PlgUserJoomla extends CMSPlugin
 			return;
 		}
 
-		$lang = Factory::getLanguage();
-		$defaultLocale = $lang->getTag();
+		$defaultLanguage = Factory::getLanguage();
+		$defaultLocale   = $defaultLanguage->getTag();
 
 		/**
 		 * Look for user language. Priority:
@@ -151,39 +191,34 @@ class PlgUserJoomla extends CMSPlugin
 		$userParams = new Registry($user['params']);
 		$userLocale = $userParams->get('language', $userParams->get('admin_language', $defaultLocale));
 
+		// Temporarily set application language to user's language.
 		if ($userLocale !== $defaultLocale)
 		{
-			$lang->setLanguage($userLocale);
+			Factory::$language = Factory::getContainer()
+				->get(LanguageFactoryInterface::class)
+				->createLanguage($userLocale, $this->app->get('debug_lang', false));
 		}
 
-		$lang->load('plg_user_joomla', JPATH_ADMINISTRATOR);
+		// Load plugin language files.
+		$this->loadLanguage();
 
-		// Compute the mail subject.
-		$emailSubject = Text::sprintf(
-			'PLG_USER_JOOMLA_NEW_USER_EMAIL_SUBJECT',
-			$user['name'],
-			$this->app->get('sitename')
-		);
+		// Collect data for mail
+		$data = [
+			'name' => $user['name'],
+			'sitename' => $this->app->get('sitename'),
+			'url' => Uri::root(),
+			'username' => $user['username'],
+			'password' => $user['password_clear'],
+			'email' => $user['email']
+		];
 
-		// Compute the mail body.
-		$emailBody = Text::sprintf(
-			'PLG_USER_JOOMLA_NEW_USER_EMAIL_BODY',
-			$user['name'],
-			$this->app->get('sitename'),
-			Uri::root(),
-			$user['username'],
-			$user['password_clear']
-		);
+		$mailer = new MailTemplate('plg_user_joomla.mail', $userLocale);
+		$mailer->addTemplateData($data);
+		$mailer->addRecipient($user['email'], $user['name']);
 
 		try
 		{
-			$res = Factory::getMailer()->sendMail(
-				$this->app->get('mailfrom'),
-				$this->app->get('fromname'),
-				$user['email'],
-				$emailSubject,
-				$emailBody
-			);
+			$res = $mailer->send();
 		}
 		catch (\Exception $exception)
 		{
@@ -195,7 +230,7 @@ class PlgUserJoomla extends CMSPlugin
 			}
 			catch (\RuntimeException $exception)
 			{
-				Factory::getApplication()->enqueueMessage(Text::_($exception->errorMessage()), 'warning');
+				$this->app->enqueueMessage(Text::_($exception->errorMessage()), 'warning');
 
 				$res = false;
 			}
@@ -209,7 +244,7 @@ class PlgUserJoomla extends CMSPlugin
 		// Set application language back to default if we changed it
 		if ($userLocale !== $defaultLocale)
 		{
-			$lang->setLanguage($defaultLocale);
+			Factory::$language = $defaultLanguage;
 		}
 	}
 

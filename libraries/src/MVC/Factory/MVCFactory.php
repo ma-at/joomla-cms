@@ -2,13 +2,13 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE
  */
 
 namespace Joomla\CMS\MVC\Factory;
 
-defined('JPATH_PLATFORM') or die;
+\defined('JPATH_PLATFORM') or die;
 
 use Joomla\CMS\Application\CMSApplicationInterface;
 use Joomla\CMS\Factory;
@@ -209,7 +209,7 @@ class MVCFactory implements MVCFactoryInterface, FormFactoryAwareInterface
 			return null;
 		}
 
-		if (array_key_exists('dbo', $config))
+		if (\array_key_exists('dbo', $config))
 		{
 			$db = $config['dbo'];
 		}
@@ -270,6 +270,7 @@ class MVCFactory implements MVCFactoryInterface, FormFactoryAwareInterface
 		}
 		catch (\UnexpectedValueException $e)
 		{
+			// Ignore it
 		}
 	}
 }

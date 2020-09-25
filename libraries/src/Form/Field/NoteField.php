@@ -2,13 +2,13 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 namespace Joomla\CMS\Form\Field;
 
-defined('JPATH_PLATFORM') or die;
+\defined('JPATH_PLATFORM') or die;
 
 use Joomla\CMS\Form\FormField;
 use Joomla\CMS\Language\Text;
@@ -29,6 +29,22 @@ class NoteField extends FormField
 	 * @since  1.7.0
 	 */
 	protected $type = 'Note';
+
+	/**
+	 * Hide the label when rendering the form field.
+	 *
+	 * @var    boolean
+	 * @since  4.0.0
+	 */
+	protected $hiddenLabel = true;
+
+	/**
+	 * Hide the description when rendering the form field.
+	 *
+	 * @var    boolean
+	 * @since  4.0.0
+	 */
+	protected $hiddenDescription = true;
 
 	/**
 	 * Method to get the field label markup.
@@ -54,7 +70,7 @@ class NoteField extends FormField
 
 		if ($close)
 		{
-			$close = $close == 'true' ? 'alert' : $close;
+			$close = $close === 'true' ? 'alert' : $close;
 			$html[] = '<button type="button" class="close" data-dismiss="' . $close . '">&times;</button>';
 		}
 

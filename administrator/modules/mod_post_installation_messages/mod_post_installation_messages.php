@@ -3,18 +3,14 @@
  * @package     Joomla.Administrator
  * @subpackage  mod_post_installation_messages
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Extension\ExtensionHelper;
-use Joomla\CMS\Factory;
 use Joomla\CMS\Helper\ModuleHelper;
-
-$user     = Factory::getUser();
-$app      = Factory::getApplication();
 
 // Try to get the items from the post-installation model
 try
@@ -30,9 +26,9 @@ catch (RuntimeException $e)
 	$app->enqueueMessage($e->getMessage(), 'error');
 }
 
-$joomlaFilesExtensionId = ExtensionHelper::getExtensionRecord('files_joomla')->extension_id;
+$joomlaFilesExtensionId = ExtensionHelper::getExtensionRecord('joomla', 'file')->extension_id;
 
 // Load the com_postinstall language file
-Factory::getLanguage()->load('com_postinstall', JPATH_ADMINISTRATOR, 'en-GB', true);
+$app->getLanguage()->load('com_postinstall', JPATH_ADMINISTRATOR, 'en-GB', true);
 
 require ModuleHelper::getLayoutPath('mod_post_installation_messages', $params->get('layout', 'default'));

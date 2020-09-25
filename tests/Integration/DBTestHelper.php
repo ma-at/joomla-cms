@@ -3,15 +3,12 @@
  * @package     Joomla.Tests
  * @subpackage  Integrations.tests
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 namespace Joomla\Tests\Integration;
 
-use Joomla\Database\DatabaseDriver;
 use Joomla\Database\DatabaseFactory;
-use Joomla\Database\Mysqli\MysqliDriver;
-use Joomla\Tests\Integration\IntegrationTestCase;
 
 /**
  * Integration Tests
@@ -39,7 +36,7 @@ class DBTestHelper
 	protected static $loadedFiles = [];
 
 	/**
-	 * @param   mixed   \Joomla\Tests\Integration\IntegrationTestCase   $test  Test
+	 * @param   mixed   IntegrationTestCase   $test  Test
 	 *
 	 * @return void
 	 * @since   4.0.0

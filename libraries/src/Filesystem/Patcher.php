@@ -2,13 +2,13 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 namespace Joomla\CMS\Filesystem;
 
-defined('JPATH_PLATFORM') or die;
+\defined('JPATH_PLATFORM') or die;
 
 use Joomla\CMS\Language\Text;
 
@@ -99,7 +99,7 @@ class Patcher
 	}
 
 	/**
-	 * Reset the pacher
+	 * Reset the patcher
 	 *
 	 * @return  FilesystemPatcher  This object for chaining
 	 *
@@ -456,7 +456,7 @@ class Patcher
 					if ($src_size > 0)
 					{
 						$dst_lines = & $this->getDestination($dst, $src);
-						$src_bottom = $src_line + count($source);
+						$src_bottom = $src_line + \count($source);
 
 						for ($l = $src_line;$l < $src_bottom;$l++)
 						{
@@ -466,7 +466,7 @@ class Patcher
 							}
 						}
 
-						array_splice($dst_lines, $dst_line, count($source), $destin);
+						array_splice($dst_lines, $dst_line, \count($source), $destin);
 					}
 					else
 					{

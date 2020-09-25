@@ -2,7 +2,7 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -54,15 +54,8 @@ class Help
 		}
 		else
 		{
-			// Get the user help URL.
-			$user = Factory::getUser();
-			$url  = $user->getParam('helpsite');
-
-			// If user hasn't specified a help URL, then get the global one.
-			if ($url == '')
-			{
-				$url = $app->get('helpurl');
-			}
+			// Get the global help URL.
+			$url = $app->get('helpurl');
 
 			// Component help URL overrides user and global.
 			if ($useComponent)

@@ -3,11 +3,11 @@
  * @package     Joomla.UnitTest
  * @subpackage  Document
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
-namespace Joomla\Tests\Unit\Libraries\Cms\Html;
+namespace Joomla\Tests\Unit\Libraries\Cms\Document;
 
 use Joomla\CMS\Document\Document;
 use Joomla\CMS\Document\FactoryInterface;

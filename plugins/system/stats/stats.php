@@ -3,7 +3,7 @@
  * @package     Joomla.Plugin
  * @subpackage  System.stats
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -11,7 +11,6 @@ defined('_JEXEC') or die;
 
 use Joomla\CMS\Cache\Cache;
 use Joomla\CMS\Factory;
-use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Http\HttpFactory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Layout\FileLayout;
@@ -143,7 +142,8 @@ class PlgSystemStats extends CMSPlugin
 			return;
 		}
 
-		HTMLHelper::_('script', 'plg_system_stats/stats-message.js', ['version' => 'auto', 'relative' => true]);
+		$this->app->getDocument()->getWebAssetManager()
+			->registerAndUseScript('plg_system_stats.message', 'plg_system_stats/stats-message.js', [], ['defer' => true], ['core']);
 	}
 
 	/**
@@ -363,7 +363,7 @@ class PlgSystemStats extends CMSPlugin
 	 */
 	private function getStatsData()
 	{
-		return [
+		$data = [
 			'unique_id'   => $this->getUniqueId(),
 			'php_version' => PHP_VERSION,
 			'db_type'     => $this->db->name,
@@ -371,6 +371,14 @@ class PlgSystemStats extends CMSPlugin
 			'cms_version' => JVERSION,
 			'server_os'   => php_uname('s') . ' ' . php_uname('r'),
 		];
+
+		// Check if we have a MariaDB version string and extract the proper version from it
+		if (preg_match('/^(?:5\.5\.5-)?(mariadb-)?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)/i', $data['db_version'], $versionParts))
+		{
+			$data['db_version'] = $versionParts['major'] . '.' . $versionParts['minor'] . '.' . $versionParts['patch'];
+		}
+
+		return $data;
 	}
 
 	/**

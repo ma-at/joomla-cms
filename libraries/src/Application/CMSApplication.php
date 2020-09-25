@@ -2,7 +2,7 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -10,10 +10,11 @@ namespace Joomla\CMS\Application;
 
 \defined('JPATH_PLATFORM') or die;
 
+use Joomla\Application\SessionAwareWebApplicationTrait;
 use Joomla\Application\Web\WebClient;
 use Joomla\CMS\Authentication\Authentication;
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Event\AbstractEvent;
-use Joomla\CMS\Event\BeforeExecuteEvent;
 use Joomla\CMS\Event\ErrorEvent;
 use Joomla\CMS\Exception\ExceptionHandler;
 use Joomla\CMS\Extension\ExtensionManagerTrait;
@@ -41,9 +42,9 @@ use Joomla\String\StringHelper;
  *
  * @since  3.2
  */
-abstract class CMSApplication extends WebApplication implements ContainerAwareInterface, CMSApplicationInterface
+abstract class CMSApplication extends WebApplication implements ContainerAwareInterface, CMSWebApplicationInterface
 {
-	use ContainerAwareTrait, ExtensionManagerTrait, ExtensionNamespaceMapper;
+	use ContainerAwareTrait, ExtensionManagerTrait, ExtensionNamespaceMapper, SessionAwareWebApplicationTrait;
 
 	/**
 	 * Array of options for the \JDocument object
@@ -226,17 +227,6 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 		{
 			$this->createExtensionNamespaceMap();
 
-			PluginHelper::importPlugin('system');
-
-			// Trigger the onBeforeExecute event
-			$this->getDispatcher()->dispatch(
-				'onBeforeExecute',
-				new BeforeExecuteEvent('onBeforeExecute', ['subject' => $this, 'container' => $this->getContainer()])
-			);
-
-			// Mark beforeExecute in the profiler.
-			JDEBUG ? $this->profiler->mark('beforeExecute event dispatched') : null;
-
 			// Perform application routines.
 			$this->doExecute();
 
@@ -292,6 +282,8 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 	 * @param   string  $tasks   Permitted tasks
 	 *
 	 * @return  void
+	 *
+	 * @throws  \Exception
 	 */
 	protected function checkUserRequireReset($option, $view, $layout, $tasks)
 	{
@@ -310,9 +302,9 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 			if ($this->get($name . '_reset_password_override', 0))
 			{
 				$option = $this->get($name . '_reset_password_option', '');
-				$view = $this->get($name . '_reset_password_view', '');
+				$view   = $this->get($name . '_reset_password_view', '');
 				$layout = $this->get($name . '_reset_password_layout', '');
-				$tasks = $this->get($name . '_reset_password_tasks', '');
+				$tasks  = $this->get($name . '_reset_password_tasks', '');
 			}
 
 			$task = $this->input->getCmd('task', '');
@@ -347,7 +339,17 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 			{
 				// Redirect to the profile edit page
 				$this->enqueueMessage(Text::_('JGLOBAL_PASSWORD_RESET_REQUIRED'), 'notice');
-				$this->redirect(Route::_('index.php?option=' . $option . '&view=' . $view . '&layout=' . $layout, false));
+
+				$url = Route::_('index.php?option=' . $option . '&view=' . $view . '&layout=' . $layout, false);
+
+				// In the administrator we need a different URL
+				if (strtolower($name) === 'administrator')
+				{
+					$user = Factory::getApplication()->getIdentity();
+					$url  = Route::_('index.php?option=' . $option . '&task=' . $view . '.' . $layout . '&id=' . $user->id, false);
+				}
+
+				$this->redirect($url);
 			}
 		}
 	}
@@ -537,13 +539,14 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 	 */
 	public static function getRouter($name = null, array $options = array())
 	{
+		$app = Factory::getApplication();
+
 		if (!isset($name))
 		{
-			$app = Factory::getApplication();
 			$name = $app->getName();
 		}
 
-		$options['mode'] = Factory::getConfig()->get('sef');
+		$options['mode'] = $app->get('sef');
 
 		return Router::getInstance($name, $options);
 	}
@@ -559,17 +562,19 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 	 */
 	public function getTemplate($params = false)
 	{
-		$template = new \stdClass;
-
-		$template->template = 'system';
-		$template->params   = new Registry;
-
 		if ($params)
 		{
+			$template = new \stdClass;
+
+			$template->template    = 'system';
+			$template->params      = new Registry;
+			$template->inheritable = 0;
+			$template->parent      = '';
+
 			return $template;
 		}
 
-		return $template->template;
+		return 'system';
 	}
 
 	/**
@@ -823,9 +828,9 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 
 				// The user is successfully logged in. Run the after login events
 				$this->triggerEvent('onUserAfterLogin', array($options));
-			}
 
-			return true;
+				return true;
+			}
 		}
 
 		// Trigger onUserLoginFailure Event.
@@ -937,10 +942,11 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 	protected function render()
 	{
 		// Setup the document options.
-		$this->docOptions['template']  = $this->get('theme');
-		$this->docOptions['file']      = $this->get('themeFile', 'index.php');
-		$this->docOptions['params']    = $this->get('themeParams');
-		$this->docOptions['csp_nonce'] = $this->get('csp_nonce');
+		$this->docOptions['template']         = $this->get('theme');
+		$this->docOptions['file']             = $this->get('themeFile', 'index.php');
+		$this->docOptions['params']           = $this->get('themeParams');
+		$this->docOptions['csp_nonce']        = $this->get('csp_nonce');
+		$this->docOptions['templateInherits'] = $this->get('themeInherits');
 
 		if ($this->get('themes.base'))
 		{
@@ -1003,10 +1009,10 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 
 		if ($active !== null
 			&& $active->type === 'alias'
-			&& $active->params->get('alias_redirect')
+			&& $active->getParams()->get('alias_redirect')
 			&& \in_array($this->input->getMethod(), array('GET', 'HEAD'), true))
 		{
-			$item = $this->getMenu()->getItem($active->params->get('aliasoptions'));
+			$item = $this->getMenu()->getItem($active->getParams()->get('aliasoptions'));
 
 			if ($item !== null)
 			{
@@ -1043,6 +1049,11 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 			$this->input->def($key, $value);
 		}
 
+		if ($this->isTwoFactorAuthenticationRequired())
+		{
+			$this->redirectIfTwoFactorAuthenticationRequired();
+		}
+
 		// Trigger the onAfterRoute event.
 		PluginHelper::importPlugin('system');
 		$this->triggerEvent('onAfterRoute');
@@ -1054,7 +1065,7 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 	 * @param   string  $key    The path of the state.
 	 * @param   mixed   $value  The value of the variable.
 	 *
-	 * @return  mixed  The previous state, if one existed.
+	 * @return  mixed|void  The previous state, if one existed.
 	 *
 	 * @since   3.2
 	 */
@@ -1150,5 +1161,155 @@ abstract class CMSApplication extends WebApplication implements ContainerAwareIn
 	public function isCli()
 	{
 		return false;
+	}
+
+	/**
+	 * Checks if 2fa needs to be enforced
+	 * if so returns true, else returns false
+	 *
+	 * @return  boolean
+	 *
+	 * @since   4.0.0
+	 *
+	 * @throws \Exception
+	 */
+	protected function isTwoFactorAuthenticationRequired(): bool
+	{
+		$userId = $this->getIdentity()->id;
+
+		if (!$userId)
+		{
+			return false;
+		}
+
+		// Check session if user has set up 2fa
+		if ($this->getSession()->has('has2fa'))
+		{
+			return false;
+		}
+
+		$enforce2faOptions = ComponentHelper::getComponent('com_users')->getParams()->get('enforce_2fa_options', 0);
+
+		if ($enforce2faOptions == 0 || !$enforce2faOptions)
+		{
+			return false;
+		}
+
+		if (!PluginHelper::isEnabled('twofactorauth'))
+		{
+			return false;
+		}
+
+		$pluginsSiteEnable          = false;
+		$pluginsAdministratorEnable = false;
+		$pluginOptions              = PluginHelper::getPlugin('twofactorauth');
+
+		// Sets and checks pluginOptions for Site and Administrator view depending on if any 2fa plugin is enabled for that view
+		array_walk($pluginOptions,
+			static function ($pluginOption) use (&$pluginsSiteEnable, &$pluginsAdministratorEnable)
+			{
+				$option  = new Registry($pluginOption->params);
+				$section = $option->get('section', 3);
+
+				switch ($section)
+				{
+					case 1:
+						$pluginsSiteEnable = true;
+						break;
+					case 2:
+						$pluginsAdministratorEnable = true;
+						break;
+					case 3:
+					default:
+						$pluginsAdministratorEnable = true;
+						$pluginsSiteEnable          = true;
+				}
+			}
+		);
+
+		if ($pluginsSiteEnable && $this->isClient('site'))
+		{
+			if (\in_array($enforce2faOptions, [1, 3]))
+			{
+				return !$this->hasUserConfiguredTwoFactorAuthentication();
+			}
+		}
+
+		if ($pluginsAdministratorEnable && $this->isClient('administrator'))
+		{
+			if (\in_array($enforce2faOptions, [2, 3]))
+			{
+				return !$this->hasUserConfiguredTwoFactorAuthentication();
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Redirects user to his Two Factor Authentication setup page
+	 *
+	 * @return void
+	 *
+	 * @since  4.0.0
+	 */
+	protected function redirectIfTwoFactorAuthenticationRequired(): void
+	{
+		$option = $this->input->get('option');
+		$task   = $this->input->get('task');
+		$view   = $this->input->get('view', null, 'STRING');
+		$layout = $this->input->get('layout', null, 'STRING');
+
+		if ($this->isClient('site'))
+		{
+			// If user is already on edit profile screen or press update/apply button, do nothing to avoid infinite redirect
+			if (($option === 'com_users' && \in_array($task, ['profile.edit', 'profile.save', 'profile.apply', 'user.logout', 'user.menulogout'], true))
+				|| $option === 'com_users' && $view === 'profile' && $layout === 'edit')
+			{
+				return;
+			}
+
+			// Redirect to com_users profile edit
+			$this->enqueueMessage(Text::_('JENFORCE_2FA_REDIRECT_MESSAGE'), 'notice');
+			$this->redirect('index.php?option=com_users&view=profile&layout=edit');
+		}
+
+		if ($option === 'com_admin' && \in_array($task, ['profile.edit', 'profile.save', 'profile.apply'], true)
+			|| ($option === 'com_admin' && $view === 'profile' && $layout === 'edit')
+			|| ($option === 'com_users' && \in_array($task, ['user.save', 'user.edit', 'user.apply', 'user.logout', 'user.menulogout'], true))
+			|| ($option === 'com_users' && $view === 'user' && $layout === 'edit')
+			|| ($option === 'com_login' && \in_array($task, ['save', 'edit', 'apply', 'logout', 'menulogout'], true)))
+		{
+			return;
+		}
+
+		// Redirect to com_admin profile edit
+		$this->enqueueMessage(Text::_('JENFORCE_2FA_REDIRECT_MESSAGE'), 'notice');
+		$this->redirect('index.php?option=com_admin&task=profile.edit&id=' . $this->getIdentity()->id);
+	}
+
+	/**
+	 * Checks if otpKey and otep for the user are not empty
+	 * if any one is empty returns false, else returns true
+	 *
+	 * @return  boolean
+	 *
+	 * @since   4.0.0
+	 *
+	 * @throws \Exception
+	 */
+	private function hasUserConfiguredTwoFactorAuthentication(): bool
+	{
+		$user = $this->getIdentity();
+
+		if (empty($user->otpKey) || empty($user->otep))
+		{
+			return false;
+		}
+
+		// Set session to user has configured 2fa
+		$this->getSession()->set('has2fa', 1);
+
+		return true;
 	}
 }

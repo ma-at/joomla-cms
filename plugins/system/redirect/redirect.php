@@ -3,7 +3,7 @@
  * @package     Joomla.Plugin
  * @subpackage  System.redirect
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -249,13 +249,16 @@ class PlgSystemRedirect extends CMSPlugin implements SubscriberInterface
 					$url = $urlRel;
 				}
 
+				$nowDate = Factory::getDate()->toSql();
+
 				$data = (object) array(
 					'id' => 0,
 					'old_url' => $url,
 					'referer' => $app->input->server->getString('HTTP_REFERER', ''),
 					'hits' => 1,
 					'published' => 0,
-					'created_date' => Factory::getDate()->toSql()
+					'created_date' => $nowDate,
+					'modified_date' => $nowDate
 				);
 
 				try

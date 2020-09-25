@@ -3,14 +3,14 @@
  * @package     Joomla.Site
  * @subpackage  Layout
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
-defined('JPATH_BASE') or die;
+defined('_JEXEC') or die;
 
 use Joomla\CMS\Application\CMSApplication;
-use Joomla\CMS\HTML\HTMLHelper;
+use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 
 $msgList = $displayData['msgList'];
@@ -27,8 +27,22 @@ $alert = [
 	'message'                     => 'success'
 ];
 
+// Load JavaScript message titles
+Text::script('ERROR');
+Text::script('MESSAGE');
+Text::script('NOTICE');
+Text::script('WARNING');
+
+// Load other Javascript message strings
+Text::script('JCLOSE');
+Text::script('JOK');
+Text::script('JOPEN');
+
 // Alerts progressive enhancement
-HTMLHelper::_('webcomponent', 'vendor/joomla-custom-elements/joomla-alert.min.js', ['version' => 'auto', 'relative' => true]);
+Factory::getDocument()->getWebAssetManager()
+	->useStyle('webcomponent.joomla-alert')
+	->useScript('webcomponent.joomla-alert');
+
 ?>
 <div id="system-message-container" aria-live="polite">
 	<div id="system-message">
@@ -36,10 +50,13 @@ HTMLHelper::_('webcomponent', 'vendor/joomla-custom-elements/joomla-alert.min.js
 			<?php foreach ($msgList as $type => $msgs) : ?>
 				<joomla-alert type="<?php echo $alert[$type] ?? $type; ?>" dismiss="true">
 					<?php if (!empty($msgs)) : ?>
-						<div class="alert-heading"><?php echo Text::_($type); ?></div>
-						<div>
+						<div class="alert-heading">
+							<span class="<?php echo $type; ?>"></span>
+							<span class="sr-only"><?php echo Text::_($type); ?></span>
+						</div>
+						<div class="alert-wrapper">
 							<?php foreach ($msgs as $msg) : ?>
-								<p><?php echo $msg; ?></p>
+								<div class="alert-message"><?php echo $msg; ?></div>
 							<?php endforeach; ?>
 						</div>
 					<?php endif; ?>

@@ -3,13 +3,13 @@
  * @package     Joomla.Libraries
  * @subpackage  Service
  *
- * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
 namespace Joomla\CMS\Service\Provider;
 
-defined('JPATH_PLATFORM') or die;
+\defined('JPATH_PLATFORM') or die;
 
 use Joomla\Database\DatabaseDriver;
 use Joomla\Database\DatabaseInterface;
@@ -89,6 +89,24 @@ class Database implements ServiceProviderInterface
 						'database' => $conf->get('db'),
 						'prefix'   => $conf->get('dbprefix'),
 					];
+
+					if ((int) $conf->get('dbencryption') !== 0)
+					{
+						$options['ssl'] = [
+							'enable'             => true,
+							'verify_server_cert' => (bool) $conf->get('dbsslverifyservercert'),
+						];
+
+						foreach (['cipher', 'ca', 'key', 'cert'] as $value)
+						{
+							$confVal = trim($conf->get('dbssl' . $value, ''));
+
+							if ($confVal !== '')
+							{
+								$options['ssl'][$value] = $confVal;
+							}
+						}
+					}
 
 					// Enable utf8mb4 connections for mysql adapters
 					if (strtolower($dbtype) === 'mysqli')

@@ -2,7 +2,7 @@
 /**
  * Joomla! Content Management System
  *
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -90,7 +90,7 @@ class CacheStorage
 		$app = Factory::getApplication();
 
 		$this->_hash        = md5($app->get('secret'));
-		$this->_application = $options['application'] ?? null;
+		$this->_application = $options['application'] ?? md5(JPATH_CONFIGURATION);
 		$this->_language    = $options['language'] ?? 'en-GB';
 		$this->_locking     = $options['locking'] ?? true;
 		$this->_lifetime    = ($options['lifetime'] ?? $app->get('cachetime')) * 60;

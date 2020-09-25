@@ -1,5 +1,5 @@
 /**
- * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2020 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -10,7 +10,6 @@
 
   const mobile = window.matchMedia('(max-width: 992px)');
   const small = window.matchMedia('(max-width: 575.98px)');
-  const smallLandscape = window.matchMedia('(max-width: 767.98px)');
   const tablet = window.matchMedia('(min-width: 576px) and (max-width:991.98px)');
 
   /**
@@ -35,44 +34,6 @@
       logo.classList.add('small');
     } else {
       logo.classList.remove('small');
-    }
-  }
-
-  /**
-   * Method that add a fade effect and transition on sidebar and content side
-   * after login and logout
-   *
-   * @since   4.0.0
-   */
-  function fade(fadeAction, transitAction) {
-    const sidebar = doc.querySelector('.sidebar-wrapper');
-    const sidebarChildren = sidebar ? sidebar.children : [];
-    const sideChildrenLength = sidebarChildren.length;
-    const contentMain = doc.querySelector('.container-main');
-    const contentChildren = contentMain ? contentMain.children : [];
-    const contChildrenLength = contentChildren.length;
-
-    for (let i = 0; i < sideChildrenLength; i += 1) {
-      sidebarChildren[i].classList.add(`load-fade${fadeAction}`);
-    }
-    for (let i = 0; i < contChildrenLength; i += 1) {
-      contentChildren[i].classList.add(`load-fade${fadeAction}`);
-    }
-    if (sidebar) {
-      if (transitAction) {
-        // Transition class depends on the width of the sidebar
-        if (storageEnabled
-          && localStorage.getItem('atum-sidebar') === 'closed') {
-          sidebar.classList.add(`transit-${transitAction}-closed`);
-          changeLogo('small');
-        } else {
-          sidebar.classList.add(`transit-${transitAction}`);
-        }
-      }
-      sidebar.classList.toggle('fade-done', fadeAction !== 'out');
-    }
-    if (contentMain) {
-      contentMain.classList.toggle('fade-done', fadeAction !== 'out');
     }
   }
 
@@ -110,6 +71,11 @@
       const imgID = img.getAttribute('id');
       const imgClass = img.getAttribute('class');
       const imgURL = img.getAttribute('src');
+
+      // Check if we're manipulating a SVG file.
+      if (imgURL.substr(imgURL.length - 4).toLowerCase() !== '.svg') {
+        return;
+      }
 
       Joomla.request({
         url: imgURL,
@@ -168,9 +134,9 @@
         const headerMoreBtn = document.createElement('button');
         headerMoreBtn.className = 'header-more-btn d-flex flex-column align-items-stretch';
         headerMoreBtn.setAttribute('type', 'button');
-        headerMoreBtn.setAttribute('title', 'More Elements');
+        headerMoreBtn.setAttribute('title', Joomla.Text._('TPL_ATUM_MORE_ELEMENTS'));
         const spanFa = document.createElement('span');
-        spanFa.className = 'fa fa-ellipsis-h';
+        spanFa.className = 'fas fa-ellipsis-h';
         spanFa.setAttribute('aria-hidden', 'true');
         const headerMoreMenu = document.createElement('div');
         headerMoreMenu.className = 'header-more-menu d-flex flex-wrap';
@@ -217,29 +183,6 @@
   }
 
   /**
-   * Trigger fade out on login and logout
-   *
-   * @since   4.0.0
-   */
-  function fadeLoginLogout() {
-    // Fade out login form when login was successful
-    const loginForm = doc.getElementById('form-login');
-    if (loginForm) {
-      loginForm.addEventListener('joomla:login', () => {
-        fade('out', 'narrow');
-      });
-    } else {
-      // Fade out dashboard on logout
-      const logoutBtn = doc.querySelector('.header-items a[href*="task=logout"]');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-          fade('out', 'wider');
-        });
-      }
-    }
-  }
-
-  /**
    * Change appearance for mobile devices
    *
    * @since   4.0.0
@@ -249,6 +192,7 @@
     const sidebarNav = doc.querySelector('.sidebar-nav');
     const subhead = doc.querySelector('.subhead');
     const wrapper = doc.querySelector('.wrapper');
+    const sidebarWrapper = doc.querySelector('.sidebar-wrapper');
 
     changeLogo('closed');
 
@@ -266,12 +210,14 @@
       wrapper.classList.add('closed');
     }
 
-    if (smallLandscape.matches) {
+    if (small.matches) {
       if (sidebarNav) sidebarNav.classList.add('collapse');
       if (subhead) subhead.classList.add('collapse');
+      if (sidebarWrapper) sidebarWrapper.classList.add('collapse');
     } else {
       if (sidebarNav) sidebarNav.classList.remove('collapse');
       if (subhead) subhead.classList.remove('collapse');
+      if (sidebarWrapper) sidebarWrapper.classList.remove('collapse');
     }
   }
 
@@ -281,12 +227,18 @@
    * @since   4.0.0
    */
   function setDesktop() {
+    const sidebarNav = doc.querySelector('.sidebar-nav');
+    const subhead = doc.querySelector('.subhead');
     const sidebarWrapper = doc.querySelector('.sidebar-wrapper');
     if (!sidebarWrapper) {
       changeLogo('closed');
     } else {
       changeLogo();
+      sidebarWrapper.classList.remove('collapse');
     }
+
+    if (sidebarNav) sidebarNav.classList.remove('collapse');
+    if (subhead) subhead.classList.remove('collapse');
 
     toggleArrowIcon('top');
   }
@@ -328,8 +280,6 @@
 
   doc.addEventListener('DOMContentLoaded', () => {
     changeSVGLogoColor();
-    fade('in');
-    fadeLoginLogout();
     headerItemsInDropdown();
     reactToResize();
     subheadScrolling();
@@ -339,8 +289,11 @@
     } else {
       setDesktop();
 
-      window.addEventListener('joomla:menu-toggle', (event) => {
-        changeLogo(event.detail);
+      if (!navigator.cookieEnabled) {
+        Joomla.renderMessages({ error: [Joomla.Text._('JGLOBAL_WARNCOOKIES')] }, undefined, false, 6000);
+      }
+      window.addEventListener('joomla:menu-toggle', ({ detail }) => {
+        changeLogo(detail);
       });
     }
   });
